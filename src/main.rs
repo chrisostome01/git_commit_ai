@@ -1,13 +1,7 @@
-use std::{error::Error, io};
+use std::{env, error::Error, io};
 use reqwest::Client;
 use git2::Repository;
 use serde_json::{json, Value};
-
-struct CustomError {
-    message: String,
-    source: io::Error,
-}
-
 
 
 fn get_diff(repo: &Repository) -> Result<String, git2::Error>{
@@ -73,13 +67,12 @@ fn log_result(res: &Value) {
 
 #[tokio::main]
 async fn main() -> Result<(), git2::Error> {
-    // Get the current directory
-    let current_dir = std::env::current_dir().map_err(|e| {
+    let openai_api_key = envy("OPENAI_API_KEY").unwrap();
+    let current_dir = env::current_dir().map_err(|e| {
         git2::Error::from_str(&format!("Failed to get current directory: {}", e))
     })?;
     println!("Current directory: {:?}", current_dir);
 
-    // Open the repository
     let repo = Repository::open(&current_dir).map_err(|e| {
         git2::Error::from_str(&format!("Failed to open repository: {}", e))
     })?;
@@ -88,8 +81,8 @@ async fn main() -> Result<(), git2::Error> {
 
     let prompt = format!("Generate a semmantic commit basaed on the following change diff, commit should not be more than 100chars and prefixs are [feat:, chore:, refactor:, fix: ], do not mention change diff in you commit \n change diff: {}", change_diff); 
 
-    let commit  = send_openai_request("----", &prompt).await;
+    // let commit  = send_openai_request(&openai_api_key, &prompt).await;
 
-    println!("{:?}", commit);
+    println!("{:?}", openai_api_key);
     Ok(())
 }
