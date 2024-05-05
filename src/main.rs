@@ -26,7 +26,9 @@ fn get_diff(repo: &Repository) -> Result<String, git2::Error>{
     Ok(diff_content)
 }
 
-async fn send_openai_request(api_key: &str, prompt: &str) -> Result<(), Box<dyn Error>> {
+async fn send_openai_request(api_key: &str, change_diff: String) -> Result<(), Box<dyn Error>> {
+    let prompt = format!("Generate a semmantic commit basaed on the following change diff, commit should not be more than 100chars and prefixs are [feat:, chore:, refactor:, fix: ], do not mention change diff in you commit \n change diff: {}", change_diff); 
+
     let client = Client::new();
     let params = json!({
         "model": "gpt-3.5-turbo",
@@ -81,9 +83,8 @@ async fn main() -> Result<(), git2::Error> {
     
     let change_diff = get_diff(&repo)?;
 
-    let prompt = format!("Generate a semmantic commit basaed on the following change diff, commit should not be more than 100chars and prefixs are [feat:, chore:, refactor:, fix: ], do not mention change diff in you commit \n change diff: {}", change_diff); 
-
-    let commit  = send_openai_request(&openai_api_key, &prompt).await;
+   
+    let commit  = send_openai_request(&openai_api_key, change_diff).await;
 
     println!("{:?}", commit);
     Ok(())
