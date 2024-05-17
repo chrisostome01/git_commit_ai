@@ -1,8 +1,33 @@
 use std::{env, error::Error};
 use reqwest::Client;
-use git2::Repository;
+use git2::{Repository};
 use serde_json::{json, Value};
 use dotenv::dotenv;
+
+
+fn commit_new_changes(repo: &Repository, message: &str) -> Result<(), git2::Error> {
+    let mut index = repo.index()?;
+    let oid = index.write_tree()?;
+    let tree = repo.find_tree(oid)?;
+
+    let head = repo.head()?.peel_to_commit()?;
+    let parent_commit = head.id();
+
+    let signature = repo.signature()?;
+    let commit_id = repo.commit(
+        Some("HEAD"), // point HEAD to the new commit
+        &signature,
+        &signature,
+        message,
+        &tree,
+        &[&head], // parent commit
+    )?;
+
+    let commit = repo.find_commit(commit_id)?;
+    println!("New commit: {}", commit.id());
+
+    Ok(())
+}
 
 
 fn get_diff(repo: &Repository) -> Result<String, git2::Error>{
@@ -31,7 +56,7 @@ async fn send_openai_request(api_key: &str, change_diff: String) -> Result<(), B
 
     let client = Client::new();
     let params = json!({
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "user",
@@ -55,16 +80,19 @@ async fn send_openai_request(api_key: &str, change_diff: String) -> Result<(), B
     Ok(())
 }
 
-fn log_result(res: &Value) {
+fn log_result(res: &Value) -> String {
     if let Some(choices) = res.get("choices") {
         if let Some(choice) = choices.as_array().and_then(|arr| arr.get(0)) {
             if let Some(message) = choice.get("message") {
                 if let Some(content) = message.get("content") {
-                    println!("Response: {}", content);
+                    let commit_message = content.to_string().trim_matches('"').to_string();
+                    println!("Generated commit message: {}", commit_message);
+                    return commit_message.to_string();
                 }
             }
         }
     }
+    String::new()
 }
 
 
@@ -84,8 +112,12 @@ async fn main() -> Result<(), git2::Error> {
     let change_diff = get_diff(&repo)?;
 
    
-    let commit  = send_openai_request(&openai_api_key, change_diff).await;
+    let commit_message = match send_openai_request(&openai_api_key, change_diff).await {
+        Ok(message) => message,
+        Err(err) =>  panic!("Something went wrong"),
+    };
 
-    println!("{:?}", commit);
+    // commit_new_changes(&repo, &commit_message);
+
     Ok(())
 }
