@@ -1,6 +1,6 @@
 use std::{env, error::Error};
 use reqwest::Client;
-use git2::{Repository};
+use git2::Repository;
 use serde_json::{json, Value};
 use dotenv::dotenv;
 
@@ -15,12 +15,12 @@ fn commit_new_changes(repo: &Repository, message: &str) -> Result<(), git2::Erro
 
     let signature = repo.signature()?;
     let commit_id = repo.commit(
-        Some("HEAD"), // point HEAD to the new commit
+        Some("HEAD"),
         &signature,
         &signature,
         message,
         &tree,
-        &[&head], // parent commit
+        &[&head],
     )?;
 
     let commit = repo.find_commit(commit_id)?;
@@ -117,7 +117,7 @@ async fn main() -> Result<(), git2::Error> {
         Err(err) =>  panic!("Something went wrong"),
     };
 
-    // commit_new_changes(&repo, &commit_message);
+    commit_new_changes(&repo, &commit_message);
 
     Ok(())
 }
