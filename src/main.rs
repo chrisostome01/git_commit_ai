@@ -51,8 +51,8 @@ fn get_diff(repo: &Repository) -> Result<String, git2::Error>{
     Ok(diff_content)
 }
 
-async fn send_openai_request(api_key: &str, change_diff: String) -> Result<(), Box<dyn Error>> {
-    let prompt = format!("Generate a semmantic commit basaed on the following change diff, commit should not be more than 100chars and prefixs are [feat:, chore:, refactor:, fix: ], do not mention change diff in you commit \n change diff: {}", change_diff); 
+async fn send_openai_request(api_key: &str, change_diff: String) -> Result<String, Box<dyn Error>> {
+    let prompt = format!("Generate a semantic commit based on the following change diff, commit should not be more than 100 chars and prefixes are [feat:, chore:, refactor:, fix: ], do not mention change diff in your commit \n change diff: {}", change_diff);
 
     let client = Client::new();
     let params = json!({
@@ -75,10 +75,10 @@ async fn send_openai_request(api_key: &str, change_diff: String) -> Result<(), B
         .json()
         .await?;
 
-    log_result(&res);
-
-    Ok(())
+    let commit_message = log_result(&res);
+    Ok(commit_message) 
 }
+
 
 fn log_result(res: &Value) -> String {
     if let Some(choices) = res.get("choices") {
@@ -87,7 +87,7 @@ fn log_result(res: &Value) -> String {
                 if let Some(content) = message.get("content") {
                     let commit_message = content.to_string().trim_matches('"').to_string();
                     println!("Generated commit message: {}", commit_message);
-                    return commit_message.to_string();
+                    return commit_message;
                 }
             }
         }
@@ -114,10 +114,11 @@ async fn main() -> Result<(), git2::Error> {
    
     let commit_message = match send_openai_request(&openai_api_key, change_diff).await {
         Ok(message) => message,
-        Err(err) =>  panic!("Something went wrong"),
+        Err(err) =>  panic!("Something went wrong {:?}", err),
     };
 
-    commit_new_changes(&repo, &commit_message);
+    let resu = commit_new_changes(&repo, &commit_message);
 
+    println!("{:?}", resu);
     Ok(())
 }
